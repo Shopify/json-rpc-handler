@@ -268,11 +268,11 @@ describe JsonRpcHandler do
     end
 
     it "returns an error with the code set to -32603 when there is an internal error" do
-      register("add") do |_params|
+      register("add") do
         raise StandardError, "Something bad happened"
       end
 
-      handle({ jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 } })
+      handle({ jsonrpc: "2.0", id: 1, method: "add" })
 
       assert_rpc_error(expected_error: { code: -32603, message: "Internal error", data: "Something bad happened" })
     end
