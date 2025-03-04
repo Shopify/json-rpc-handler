@@ -21,7 +21,7 @@ module JsonRpcHandler
   module_function
 
   def handle(request, &find_method)
-    if request.is_a?(Array)
+    if request.is_a? Array
       return error_response(
         id: nil,
         error: {
@@ -107,13 +107,14 @@ module JsonRpcHandler
   end
 
   def validate_request(request)
-    error = if !request.is_a? Hash
+    error = case
+    when !request.is_a?(Hash)
       "Request must be an object"
-    elsif !valid_version? request[:jsonrpc]
+    when !valid_version?(request[:jsonrpc])
       "JSON-RPC version must be 2.0"
-    elsif !valid_id? request[:id]
+    when !valid_id?(request[:id])
       "Request ID must be a string or an integer or null"
-    elsif !valid_method_name? request[:method]
+    when !valid_method_name?(request[:method])
       "Method name must be a string and not start with 'rpc.'"
     end
 
@@ -129,7 +130,7 @@ module JsonRpcHandler
   end
 
   def valid_method_name?(method)
-    !!(method.is_a? String and !method.start_with? "rpc.")
+    method.is_a?(String) && !method.start_with?("rpc.")
   end
 
   def valid_params?(params)
