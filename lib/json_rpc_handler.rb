@@ -34,9 +34,18 @@ module JsonRpcHandler
       responses = request.map { |req| process_request(req, &find_method) }.compact
       # And empty array yields nil
       responses if responses.any?
-    else
+    elsif request.is_a? Hash
       # Handle single request
       process_request(request, &find_method)
+    else
+      error_response(
+        id: nil,
+        error: {
+          code: ErrorCode::InvalidRequest,
+          message: 'Invalid Request',
+          data: 'Request must be an array or a hash',
+        },
+      )
     end
   end
 
@@ -108,8 +117,6 @@ module JsonRpcHandler
 
   def validate_request(request)
     error = case
-    when !request.is_a?(Hash)
-      'Request must be an object'
     when !valid_version?(request[:jsonrpc])
       'JSON-RPC version must be 2.0'
     when !valid_id?(request[:id])

@@ -27,6 +27,12 @@ describe JsonRpcHandler do
     # jsonrpc
     #   A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
 
+    it "returns an error when the request is not an array or a hash" do
+      handle(true)
+
+      assert_rpc_error(expected_error: { code: -32600, message: "Invalid Request", data: "Request must be an array or a hash" })
+    end
+
     it "returns a result when jsonrpc is 2.0" do
       register("add") do |params|
         params[:a] + params[:b]
@@ -250,6 +256,12 @@ describe JsonRpcHandler do
       handle({ jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 } })
 
       assert_rpc_error(expected_error: { code: -32601, message: "Method not found", data: "add" })
+    end
+
+    it "returns nil when the method does not exist and the id is nil" do
+      handle({ jsonrpc: "2.0", method: "add", params: { a: 1, b: 2 } })
+
+      assert_nil @response
     end
 
     it "returns an error with the code set to -32602 when the method parameters are invalid" do
