@@ -6,9 +6,10 @@ describe JsonRpcHandler do
   before do
     @registry = {}
     @response = nil
+    @response_json = nil
   end
 
-  describe '#handle_json' do
+  describe '#handle' do
     # Comments verbatim from https://www.jsonrpc.org/specification
     #
     # JSON-RPC 2.0 Specification
@@ -221,12 +222,6 @@ describe JsonRpcHandler do
     #
     # Either the result member or error member MUST be included, but both members MUST NOT be included.
 
-    it "returns an error with the id set to nil when the request is invalid" do
-      handle_json("Invalid JSON")
-
-      assert_nil @response[:id]
-    end
-
     # 5.1 Error object
     #
     # When a rpc call encounters an error, the Response Object MUST contain the error member with a value that is a Object
@@ -275,12 +270,6 @@ describe JsonRpcHandler do
       handle({ jsonrpc: "2.0", id: 1, method: "add" })
 
       assert_rpc_error(expected_error: { code: -32603, message: "Internal error", data: "Something bad happened" })
-    end
-
-    it "returns an error with the code set to -32700 there is a JSON parse error" do
-      handle_json("Invalid JSON")
-
-      assert_rpc_error(expected_error: { code: -32700, message: "Parse error", data: "Invalid JSON" })
     end
 
     # 6 Batch
@@ -367,6 +356,38 @@ describe JsonRpcHandler do
     # system extension is defined in a related specification. All system extensions are OPTIONAL.
   end
 
+  describe '#handle_json' do
+    it "returns a Response object when the request is valid and not a notification" do
+      register("add") do |params|
+        params[:a] + params[:b]
+      end
+
+      handle_json({ jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 } }.to_json)
+
+      assert_rpc_success(expected_result: 3)
+    end
+
+    it "returns nil for notifications" do
+      register("ping") {}
+
+      handle_json({ jsonrpc: "2.0", method: "ping" }.to_json)
+
+      assert_nil @response
+    end
+
+    it "returns an error with the id set to nil when the request is invalid" do
+      handle_json("Invalid JSON")
+
+      assert_nil @response[:id]
+    end
+
+    it "returns an error with the code set to -32700 there is a JSON parse error" do
+      handle_json("Invalid JSON")
+
+      assert_rpc_error(expected_error: { code: -32700, message: "Parse error", data: "Invalid JSON" })
+    end
+  end
+
   private
 
   def register(method_name, &block)
@@ -378,8 +399,8 @@ describe JsonRpcHandler do
   end
 
   def handle_json(request_json)
-    response_json = JsonRpcHandler.handle_json(request_json) { |method_name| @registry[method_name] }
-    @response = JSON.parse(response_json, symbolize_names: true) if response_json
+    @response_json = JsonRpcHandler.handle_json(request_json) { |method_name| @registry[method_name] }
+    @response = JSON.parse(@response_json, symbolize_names: true) if @response_json
   end
 
   def assert_rpc_success(expected_result:)
