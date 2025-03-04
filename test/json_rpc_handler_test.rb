@@ -53,7 +53,7 @@ describe JsonRpcHandler do
       assert_rpc_error(expected_error: {
         code: -32600,
         message: "Invalid Request",
-        data: "Method name must be a string and not start with 'rpc.'",
+        data: 'Method name must be a string and not start with "rpc."',
       })
     end
 
@@ -63,7 +63,7 @@ describe JsonRpcHandler do
       assert_rpc_error(expected_error: {
         code: -32600,
         message: "Invalid Request",
-        data: "Method name must be a string and not start with 'rpc.'",
+        data: 'Method name must be a string and not start with "rpc."',
       })
     end
 

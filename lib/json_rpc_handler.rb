@@ -6,8 +6,8 @@ module JsonRpcHandler
   class InvalidRequestError < StandardError; end
 
   class Version
-    V1_0 = "1.0"
-    V2_0 = "2.0"
+    V1_0 = '1.0'
+    V2_0 = '2.0'
   end
 
   class ErrorCode
@@ -26,8 +26,8 @@ module JsonRpcHandler
         id: nil,
         error: {
           code: ErrorCode::InvalidRequest,
-          message: "Invalid Request",
-          data: "Request is an empty array",
+          message: 'Invalid Request',
+          data: 'Request is an empty array',
         },
       ) if request.empty?
       # Handle batch requests
@@ -50,8 +50,8 @@ module JsonRpcHandler
         id: nil,
         error: {
           code: ErrorCode::ParseError,
-          message: "Parse error",
-          data: "Invalid JSON",
+          message: 'Parse error',
+          data: 'Invalid JSON',
         },
       ).to_json
     end
@@ -67,7 +67,7 @@ module JsonRpcHandler
     rescue InvalidRequestError => e
       return error_response id:, error: {
         code: ErrorCode::InvalidRequest,
-        message: "Invalid Request",
+        message: 'Invalid Request',
         data: e.message,
       }
     end
@@ -78,8 +78,8 @@ module JsonRpcHandler
     unless valid_params? params
       return error_response id:, error: {
         code: ErrorCode::InvalidParams,
-        message: "Invalid params",
-        data: "Method parameters must be an array or an object or null",
+        message: 'Invalid params',
+        data: 'Method parameters must be an array or an object or null',
       }
     end
 
@@ -89,7 +89,7 @@ module JsonRpcHandler
       if method.nil?
         return error_response id:, error: {
           code: ErrorCode::MethodNotFound,
-          message: "Method not found",
+          message: 'Method not found',
           data: method_name,
         } unless id.nil?
       end
@@ -98,24 +98,24 @@ module JsonRpcHandler
 
       success_response(id:, result:) unless id.nil?
     rescue StandardError => e
-      error_response id:, error: {
+      error_response(id:, error: {
         code: ErrorCode::InternalError,
-        message: "Internal error",
+        message: 'Internal error',
         data: e.message,
-      } unless id.nil?
+      }) unless id.nil?
     end
   end
 
   def validate_request(request)
     error = case
     when !request.is_a?(Hash)
-      "Request must be an object"
+      'Request must be an object'
     when !valid_version?(request[:jsonrpc])
-      "JSON-RPC version must be 2.0"
+      'JSON-RPC version must be 2.0'
     when !valid_id?(request[:id])
-      "Request ID must be a string or an integer or null"
+      'Request ID must be a string or an integer or null'
     when !valid_method_name?(request[:method])
-      "Method name must be a string and not start with 'rpc.'"
+      'Method name must be a string and not start with "rpc."'
     end
 
     raise InvalidRequestError, error if error
@@ -130,7 +130,7 @@ module JsonRpcHandler
   end
 
   def valid_method_name?(method)
-    method.is_a?(String) && !method.start_with?("rpc.")
+    method.is_a?(String) && !method.start_with?('rpc.')
   end
 
   def valid_params?(params)
