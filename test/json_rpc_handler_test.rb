@@ -71,7 +71,7 @@ describe JsonRpcHandler do
     #   A Structured value that holds the parameter values to be used during the invocation of the method. This member MAY
     #   be omitted.
 
-    it "can return a result when parameters are omitted" do
+    it "returns a result when parameters are omitted" do
       register("greet") do
         "Hello, world!"
       end
@@ -142,24 +142,26 @@ describe JsonRpcHandler do
     # Notifications are not confirmable by definition, since they do not have a Response object to be returned. As such,
     # the Client would not be aware of any errors (like e.g. "Invalid params","Internal error").
 
-    it "with a notification request returns an empty response even if the method returns a result" do
-      register("ping") do
-        "pong"
+    describe "with a notification request" do
+      it "returns an empty response even if the method returns a result" do
+        register("ping") do
+          "pong"
+        end
+
+        handle({ jsonrpc: "2.0", method: "ping", params: { ts: Time.now.to_i } })
+
+          assert_nil @response
+        end
+
+      it "returns an empty response even if the method raises an error" do
+          register("ping") do
+          raise StandardError, "Something bad happened"
+        end
+
+        handle({ jsonrpc: "2.0", method: "ping", params: { ts: Time.now.to_i } })
+
+        assert_nil @response
       end
-
-      handle({ jsonrpc: "2.0", method: "ping", params: { ts: Time.now.to_i } })
-
-      assert_nil @response
-    end
-
-    it "with a notification request returns an empty response even if the method raises an error" do
-      register("ping") do
-        raise StandardError, "Something bad happened"
-      end
-
-      handle({ jsonrpc: "2.0", method: "ping", params: { ts: Time.now.to_i } })
-
-      assert_nil @response
     end
 
     # 4.2 Parameter Structures
@@ -173,12 +175,9 @@ describe JsonRpcHandler do
     #   method's expected parameters.
 
     it "with array params returns a result" do
-      # Rubocop wants to shorten this to &:sum, but then it breaks for some reason.
-      # rubocop:disable Style/SymbolProc
       register("sum") do |params|
         params.sum
       end
-      # rubocop:enable Style/SymbolProc
 
       handle({ jsonrpc: "2.0", id: 1, method: "sum", params: [1, 2, 3] })
 
@@ -302,54 +301,62 @@ describe JsonRpcHandler do
     # Response array as it is to be sent to the client, the server MUST NOT return an empty Array and should return
     # nothing at all.
 
-    it "with batch request returns an array of Response objects" do
-      register("add") do |params|
-        params[:a] + params[:b]
-      end
-      register("mul") do |params|
-        params[:a] * params[:b]
-      end
+    describe "with batch request" do
+      it "returns an invalid request error when the request is an empty array" do
+        handle([])
 
-      handle([
-        { jsonrpc: "2.0", id: 100, method: "add", params: { a: 1, b: 2 } },
-        { jsonrpc: "2.0", id: 200, method: "mul", params: { a: 3, b: 4 } },
-      ])
-
-      assert @response.is_a?(Array)
-      assert @response.all? { |result| result[:jsonrpc] == "2.0"}
-      assert_equal [100, 200], @response.map { |result| result[:id] }
-      assert_equal [3, 12], @response.map { |result| result[:result] }
-      assert @response.all? { |result| result[:error].nil? }
-    end
-
-    it "with batch request with notifications returns an array of Response objects excluding notifications" do
-      register("ping") {}
-      register("add") do |params|
-        params[:a] + params[:b]
+        assert_rpc_error(expected_error: { code: -32600, message: "Invalid Request", data: "Request is an empty array" })
       end
 
-      handle([
-        { jsonrpc: "2.0", method: "ping" },
-        { jsonrpc: "2.0", id: 100, method: "add", params: { a: 1, b: 2 } },
-      ])
+      it "returns an array of Response objects" do
+        register("add") do |params|
+          params[:a] + params[:b]
+        end
+        register("mul") do |params|
+          params[:a] * params[:b]
+        end
 
-      assert @response.is_a?(Array)
-      assert @response.all? { |result| result[:jsonrpc] == "2.0"}
-      assert_equal [100], @response.map { |result| result[:id] }
-      assert_equal [3], @response.map { |result| result[:result] }
-      assert @response.all? { |result| result[:error].nil? }
-    end
+        handle([
+          { jsonrpc: "2.0", id: 100, method: "add", params: { a: 1, b: 2 } },
+          { jsonrpc: "2.0", id: 200, method: "mul", params: { a: 3, b: 4 } },
+        ])
 
-    it "with batch request with only notifications returns an empty response" do
-      register("ping") {}
-      register("pong") {}
+        assert @response.is_a?(Array)
+        assert @response.all? { |result| result[:jsonrpc] == "2.0"}
+        assert_equal [100, 200], @response.map { |result| result[:id] }
+        assert_equal [3, 12], @response.map { |result| result[:result] }
+        assert @response.all? { |result| result[:error].nil? }
+      end
 
-      handle([
-        { jsonrpc: "2.0", method: "ping" },
-        { jsonrpc: "2.0", method: "pong" },
-      ])
+      it "returns an array of Response objects excluding notifications" do
+        register("ping") {}
+        register("add") do |params|
+          params[:a] + params[:b]
+        end
 
-      assert_nil @response
+        handle([
+          { jsonrpc: "2.0", method: "ping" },
+          { jsonrpc: "2.0", id: 100, method: "add", params: { a: 1, b: 2 } },
+        ])
+
+        assert @response.is_a?(Array)
+        assert @response.all? { |result| result[:jsonrpc] == "2.0"}
+        assert_equal [100], @response.map { |result| result[:id] }
+        assert_equal [3], @response.map { |result| result[:result] }
+        assert @response.all? { |result| result[:error].nil? }
+      end
+
+      it "returns an empty response when there are only notifications" do
+        register("ping") {}
+        register("pong") {}
+
+        handle([
+          { jsonrpc: "2.0", method: "ping" },
+          { jsonrpc: "2.0", method: "pong" },
+        ])
+
+        assert_nil @response
+      end
     end
 
     # 7 Examples
