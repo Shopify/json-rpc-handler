@@ -143,7 +143,7 @@ describe JsonRpcHandler do
     # the Client would not be aware of any errors (like e.g. "Invalid params","Internal error").
 
     describe "with a notification request" do
-      it "returns an empty response even if the method returns a result" do
+      it "returns nil even if the method returns a result" do
         register("ping") do
           "pong"
         end
@@ -153,7 +153,7 @@ describe JsonRpcHandler do
           assert_nil @response
         end
 
-      it "returns an empty response even if the method raises an error" do
+      it "returns nil even if the method raises an error" do
           register("ping") do
           raise StandardError, "Something bad happened"
         end
@@ -346,7 +346,7 @@ describe JsonRpcHandler do
         assert @response.all? { |result| result[:error].nil? }
       end
 
-      it "returns an empty response when there are only notifications" do
+      it "returns nil when there are only notifications" do
         register("ping") {}
         register("pong") {}
 
@@ -365,8 +365,6 @@ describe JsonRpcHandler do
     #
     # Method names that begin with rpc. are reserved for system extensions, and MUST NOT be used for anything else. Each
     # system extension is defined in a related specification. All system extensions are OPTIONAL.
-
-
   end
 
   private
