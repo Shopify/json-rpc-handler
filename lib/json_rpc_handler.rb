@@ -60,60 +60,60 @@ module JsonRpcHandler
   def process_request(request, &find_method)
     id = request[:id]
     # If the id is not valid, set it to nil, so the validation error will have id as nil
-    id = nil if !valid_id?(id)
+    id = nil if !valid_id? id
 
     begin
-      validate_request(request)
+      validate_request request
     rescue InvalidRequestError => e
-      return error_response(id:, error: {
+      return error_response id:, error: {
         code: ErrorCode::InvalidRequest,
         message: "Invalid Request",
         data: e.message,
-      })
+      }
     end
 
     method_name = request[:method]
     params = request[:params]
 
-    unless valid_params?(params)
-      return error_response(id:, error: {
+    unless valid_params? params
+      return error_response id:, error: {
         code: ErrorCode::InvalidParams,
         message: "Invalid params",
         data: "Method parameters must be an array or an object or null",
-      })
+      }
     end
 
     begin
-      method = find_method.call(method_name)
+      method = find_method.call method_name
 
       if method.nil?
-        return error_response(id:, error: {
+        return error_response id:, error: {
           code: ErrorCode::MethodNotFound,
           message: "Method not found",
           data: method_name,
-        }) unless id.nil?
+        } unless id.nil?
       end
 
-      result = method.call(params)
+      result = method.call params
 
       success_response(id:, result:) unless id.nil?
     rescue StandardError => e
-      error_response(id:, error: {
+      error_response id:, error: {
         code: ErrorCode::InternalError,
         message: "Internal error",
         data: e.message,
-      }) unless id.nil?
+      } unless id.nil?
     end
   end
 
   def validate_request(request)
-    error = if !request.is_a?(Hash)
+    error = if !request.is_a? Hash
       "Request must be an object"
-    elsif !valid_version?(request[:jsonrpc])
+    elsif !valid_version? request[:jsonrpc]
       "JSON-RPC version must be 2.0"
-    elsif !valid_id?(request[:id])
+    elsif !valid_id? request[:id]
       "Request ID must be a string or an integer or null"
-    elsif !valid_method_name?(request[:method])
+    elsif !valid_method_name? request[:method]
       "Method name must be a string and not start with 'rpc.'"
     end
 
@@ -129,7 +129,7 @@ module JsonRpcHandler
   end
 
   def valid_method_name?(method)
-    !!(method.is_a?(String) && !method.start_with?("rpc."))
+    !!(method.is_a? String and !method.start_with? "rpc.")
   end
 
   def valid_params?(params)
