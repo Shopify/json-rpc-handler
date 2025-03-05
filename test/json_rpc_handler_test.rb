@@ -242,7 +242,7 @@ describe JsonRpcHandler do
       assert_nil @response[:result]
     end
 
-    it "returns nil for id when there is an error detecting the id" do
+    it "returns nil for id when there is an error and and error detecting the id" do
       register("ping") { "pong" }
 
       handle jsonrpc: "2.0", id: {}, method: "ping"
@@ -290,7 +290,7 @@ describe JsonRpcHandler do
       }
     end
 
-    it "returns an error when the request is not an array or a hash" do
+    it "returns an error with code set to -32600 when the request is not an array or a hash" do
       handle true
 
       assert_rpc_error expected_error: {

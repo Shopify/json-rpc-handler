@@ -100,7 +100,7 @@ module JsonRpcHandler
 
       result = method.call params
 
-      success_response(id:, result:) unless id.nil?
+      success_response id:, result:
     rescue StandardError => e
       error_response id:, error: {
         code: ErrorCode::InternalError,
@@ -129,7 +129,7 @@ module JsonRpcHandler
   def success_response(id:, result:)
     {
       jsonrpc: Version::V2_0,
-      id: valid_id?(id) ? id : nil,
+      id:,
       result:,
     } unless id.nil?
   end
