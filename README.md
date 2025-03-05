@@ -7,7 +7,7 @@ appropriate JSON-RPC responses.
 
 It does not deal with the transport layer (e.g. HTTP, WebSockets, etc.)
 
-[1] https://www.jsonrpc.org/specification
+[1]: https://www.jsonrpc.org/specification
 
 ## Installation
 
