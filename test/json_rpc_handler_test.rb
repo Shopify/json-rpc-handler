@@ -464,7 +464,7 @@ describe JsonRpcHandler do
     @registry[method_name] = block
   end
 
-  def handle(request, &find_method)
+  def handle(request)
     @response = JsonRpcHandler.handle(request) { |method_name| @registry[method_name] }
   end
 
