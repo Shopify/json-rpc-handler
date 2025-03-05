@@ -28,9 +28,7 @@ describe JsonRpcHandler do
     #   A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
 
     it "returns a result when jsonrpc is 2.0" do
-      register "add" do |params|
-        params[:a] + params[:b]
-      end
+      register("add") { |params| params[:a] + params[:b] }
 
       handle jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 }
 
@@ -77,9 +75,7 @@ describe JsonRpcHandler do
     #   MAY be omitted.
 
     it "returns a result when parameters are omitted" do
-      register "greet" do
-        "Hello, world!"
-      end
+      register("greet") { "Hello, world!" }
 
       handle jsonrpc: "2.0", id: 1, method: "greet"
 
@@ -95,9 +91,7 @@ describe JsonRpcHandler do
     #   context between the two objects.
 
     it "returns a response with the same request id when the id is a string" do
-      register "add" do |params|
-        params[:a] + params[:b]
-      end
+      register("add") { |params| params[:a] + params[:b] }
       id = "rpc-call-42"
 
       handle jsonrpc: "2.0", id:, method: "add", params: { a: 1, b: 2 }
@@ -107,9 +101,7 @@ describe JsonRpcHandler do
     end
 
     it "returns a response with the same request id when the id is an integer" do
-      register "add" do |params|
-        params[:a] + params[:b]
-      end
+      register("add") { |params| params[:a] + params[:b] }
       id = 42
 
       handle jsonrpc: "2.0", id:, method: "add", params: { a: 1, b: 2 }
@@ -150,9 +142,7 @@ describe JsonRpcHandler do
 
     describe "with a notification request" do
       it "returns nil even if the method returns a result" do
-        register "ping" do
-          "pong"
-        end
+        register("ping") { "pong" }
 
         handle jsonrpc: "2.0", method: "ping"
 
@@ -160,9 +150,7 @@ describe JsonRpcHandler do
       end
 
       it "returns nil even if the method raises an error" do
-        register "ping" do
-          raise StandardError, "Something bad happened"
-        end
+        register("ping") { raise StandardError, "Something bad happened" }
 
         handle jsonrpc: "2.0", method: "ping"
 
@@ -181,9 +169,7 @@ describe JsonRpcHandler do
     #   method's expected parameters.
 
     it "with array params returns a result" do
-      register "sum" do |params|
-        params.sum
-      end
+      register("sum") { |params| params.sum }
 
       handle jsonrpc: "2.0", id: 1, method: "sum", params: [1, 2, 3]
 
@@ -191,9 +177,7 @@ describe JsonRpcHandler do
     end
 
     it "with hash params returns a result" do
-      register "sum" do |params|
-        params[:a] + params[:b]
-      end
+      register("sum") { |params| params[:a] + params[:b] }
 
       handle jsonrpc: "2.0", id: 1, method: "sum", params: { a: 1, b: 2 }
 
@@ -209,9 +193,7 @@ describe JsonRpcHandler do
     #   A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
 
     it "returns a result with jsonrpc set to 2.0" do
-      register "add" do |params|
-        params[:a] + params[:b]
-      end
+      register("add") { |params| params[:a] + params[:b] }
 
       handle jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 }
 
@@ -237,9 +219,7 @@ describe JsonRpcHandler do
     # Either the result member or error member MUST be included, but both members MUST NOT be included.
 
     it "returns a result object and no error object on success" do
-      register "ping" do
-        "pong"
-      end
+      register("ping") { "pong" }
 
       handle jsonrpc: "2.0", id: 1, method: "ping"
 
@@ -249,9 +229,7 @@ describe JsonRpcHandler do
     end
 
     it "returns an error object and no result object on error" do
-      register "ping" do
-        raise StandardError, "Something bad happened"
-      end
+      register("ping") { raise StandardError, "Something bad happened" }
 
       handle jsonrpc: "2.0", id: 1, method: "ping"
 
@@ -265,9 +243,7 @@ describe JsonRpcHandler do
     end
 
     it "returns nil for id when there is an error detecting the id" do
-      register "ping" do
-        "pong"
-      end
+      register("ping") { "pong" }
 
       handle jsonrpc: "2.0", id: {}, method: "ping"
 
@@ -352,9 +328,7 @@ describe JsonRpcHandler do
     end
 
     it "returns an error with the code set to -32603 when there is an internal error" do
-      register "add" do
-        raise StandardError, "Something bad happened"
-      end
+      register("add") { raise StandardError, "Something bad happened" }
 
       handle jsonrpc: "2.0", id: 1, method: "add"
 
@@ -395,12 +369,8 @@ describe JsonRpcHandler do
       end
 
       it "returns an array of Response objects" do
-        register "add" do |params|
-          params[:a] + params[:b]
-        end
-        register "mul" do |params|
-          params[:a] * params[:b]
-        end
+        register("add") { |params| params[:a] + params[:b] }
+        register("mul") { |params| params[:a] * params[:b] }
 
         handle [
           { jsonrpc: "2.0", id: 100, method: "add", params: { a: 1, b: 2 } },
@@ -415,10 +385,8 @@ describe JsonRpcHandler do
       end
 
       it "returns an array of Response objects excluding notifications" do
-        register "ping" do; end
-        register "add" do |params|
-          params[:a] + params[:b]
-        end
+        register("ping") {}
+        register("add") { |params| params[:a] + params[:b] }
 
         handle [
           { jsonrpc: "2.0", method: "ping" },
@@ -434,10 +402,8 @@ describe JsonRpcHandler do
       end
 
       it "returns a single response object when the batch has only a single response" do
-        register "ping" do; end
-        register "add" do |params|
-          params[:a] + params[:b]
-        end
+        register("ping") {}
+        register("add") { |params| params[:a] + params[:b] }
 
         handle [
           { jsonrpc: "2.0", method: "ping" },
@@ -448,8 +414,8 @@ describe JsonRpcHandler do
       end
 
       it "returns nil when the batch has only notifications" do
-        register "ping" do; end
-        register "pong" do; end
+        register("ping") {}
+        register("pong") {}
 
         handle [
           { jsonrpc: "2.0", method: "ping" },
@@ -470,9 +436,7 @@ describe JsonRpcHandler do
 
   describe '#handle_json' do
     it "returns a Response object when the request is valid and not a notification" do
-      register "add" do |params|
-        params[:a] + params[:b]
-      end
+      register("add") { |params| params[:a] + params[:b] }
 
       handle_json({ jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 } }.to_json)
 
@@ -480,7 +444,7 @@ describe JsonRpcHandler do
     end
 
     it "returns nil for notifications" do
-      register "ping" do; end
+      register("ping") {}
 
       handle_json({ jsonrpc: "2.0", method: "ping" }.to_json)
 
