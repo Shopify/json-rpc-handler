@@ -18,7 +18,7 @@ module JsonRpcHandler
 
   module_function
 
-  def handle(request, &find_method)
+  def handle(request, &method_finder)
     if request.is_a? Array
       return error_response id: :unknown_id, error: {
         code: ErrorCode::InvalidRequest,
@@ -27,7 +27,7 @@ module JsonRpcHandler
       } if request.empty?
 
       # Handle batch requests
-      responses = request.map { |req| process_request req, &find_method }.compact
+      responses = request.map { |req| process_request req, &method_finder }.compact
 
       # A single item is hoisted out of the array
       return responses.first if responses.one?
@@ -36,7 +36,7 @@ module JsonRpcHandler
       responses if responses.any?
     elsif request.is_a? Hash
       # Handle single request
-      process_request request, &find_method
+      process_request request, &method_finder
     else
       error_response id: :unknown_id, error: {
         code: ErrorCode::InvalidRequest,
@@ -46,10 +46,10 @@ module JsonRpcHandler
     end
   end
 
-  def handle_json(request_json, &find_method)
+  def handle_json(request_json, &method_finder)
     begin
       request = JSON.parse request_json, symbolize_names: true
-      response = handle request, &find_method
+      response = handle request, &method_finder
     rescue JSON::ParserError
       response =error_response id: :unknown_id, error: {
         code: ErrorCode::ParseError,
@@ -61,7 +61,7 @@ module JsonRpcHandler
     response.to_json if response
   end
 
-  def process_request(request, &find_method)
+  def process_request(request, &method_finder)
     id = request[:id]
 
     error = case
@@ -88,7 +88,7 @@ module JsonRpcHandler
     end
 
     begin
-      method = find_method.call method_name
+      method = method_finder.call method_name
 
       if method.nil?
         return error_response id:, error: {
