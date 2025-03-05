@@ -91,13 +91,13 @@ To install this gem onto your local machine, run `bundle exec rake install`.
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at
-https://github.com/Shopify/json_rpc_handler. This project is intended to be a
+https://github.com/Shopify/json-rpc-handler. This project is intended to be a
 safe, welcoming space for collaboration, and contributors are expected to adhere
 to the [Contributor Covenant][2] code of conduct. Read more about contributing
 [here][3].
 
 [2]: https://contributor-covenant.org
-[3]: https://github.com/Shopify/json_rpc_handler/blob/main/CONTRIBUTING.md
+[3]: https://github.com/Shopify/json-rpc-handler/blob/main/CONTRIBUTING.md
 
 ## License
 
@@ -110,4 +110,4 @@ The gem is available as open source under the terms of the [MIT License][4].
 Everyone interacting in this repository is expected to follow the
 [Code of Conduct][5].
 
-[5]: https://github.com/Shopify/json_rpc_handler/blob/main/CODE_OF_CONDUCT.md
+[5]: https://github.com/Shopify/json-rpc-handler/blob/main/CODE_OF_CONDUCT.md
