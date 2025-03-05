@@ -28,19 +28,23 @@ describe JsonRpcHandler do
     #   A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
 
     it "returns a result when jsonrpc is 2.0" do
-      register("add") do |params|
+      register "add" do |params|
         params[:a] + params[:b]
       end
 
-      handle({ jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 }
 
-      assert_rpc_success(expected_result: 3)
+      assert_rpc_success expected_result: 3
     end
 
     it "returns an error when jsonrpc is not 2.0" do
-      handle({ jsonrpc: "3.0", id: 1, method: "add", params: { a: 1, b: 2 } })
+      handle jsonrpc: "3.0", id: 1, method: "add", params: { a: 1, b: 2 }
 
-      assert_rpc_error(expected_error: { code: -32600, message: "Invalid Request", data: "JSON-RPC version must be 2.0" })
+      assert_rpc_error expected_error: {
+        code: -32600,
+        message: "Invalid Request",
+        data: "JSON-RPC version must be 2.0"
+      }
     end
 
     # method
@@ -49,23 +53,23 @@ describe JsonRpcHandler do
     #   used for anything else.
 
     it "returns an error when method is not a string" do
-      handle({ jsonrpc: "2.0", id: 1, method: 42, params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", id: 1, method: 42, params: { a: 1, b: 2 }
 
-      assert_rpc_error(expected_error: {
+      assert_rpc_error expected_error: {
         code: -32600,
         message: "Invalid Request",
         data: 'Method name must be a string and not start with "rpc."',
-      })
+      }
     end
 
     it "returns an error when method begins with 'rpc.'" do
-      handle({ jsonrpc: "2.0", id: 1, method: "rpc.add", params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", id: 1, method: "rpc.add", params: { a: 1, b: 2 }
 
-      assert_rpc_error(expected_error: {
+      assert_rpc_error expected_error: {
         code: -32600,
         message: "Invalid Request",
         data: 'Method name must be a string and not start with "rpc."',
-      })
+      }
     end
 
     # params
@@ -73,13 +77,13 @@ describe JsonRpcHandler do
     #   MAY be omitted.
 
     it "returns a result when parameters are omitted" do
-      register("greet") do
+      register "greet" do
         "Hello, world!"
       end
 
-      handle({ jsonrpc: "2.0", id: 1, method: "greet" })
+      handle jsonrpc: "2.0", id: 1, method: "greet"
 
-      assert_rpc_success(expected_result: "Hello, world!")
+      assert_rpc_success expected_result: "Hello, world!"
     end
 
     # id
@@ -91,47 +95,47 @@ describe JsonRpcHandler do
     #   context between the two objects.
 
     it "returns a response with the same request id when the id is a string" do
-      register("add") do |params|
+      register "add" do |params|
         params[:a] + params[:b]
       end
       id = "rpc-call-42"
 
-      handle({ jsonrpc: "2.0", id:, method: "add", params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", id:, method: "add", params: { a: 1, b: 2 }
 
-      assert_rpc_success(expected_result: 3)
+      assert_rpc_success expected_result: 3
       assert_equal id, @response[:id]
     end
 
     it "returns a response with the same request id when the id is an integer" do
-      register("add") do |params|
+      register "add" do |params|
         params[:a] + params[:b]
       end
       id = 42
 
-      handle({ jsonrpc: "2.0", id:, method: "add", params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", id:, method: "add", params: { a: 1, b: 2 }
 
-      assert_rpc_success(expected_result: 3)
+      assert_rpc_success expected_result: 3
       assert_equal id, @response[:id]
     end
 
     it "returns an error when request id is not of a valid type" do
-      handle({ jsonrpc: "2.0", id: true, method: "add", params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", id: true, method: "add", params: { a: 1, b: 2 }
 
-      assert_rpc_error(expected_error: {
+      assert_rpc_error expected_error: {
         code: -32600,
         message: "Invalid Request",
         data: "Request ID must be a string or an integer or null",
-      })
+      }
     end
 
     it "returns an error when id is a number with a fractional part" do
-      handle({ jsonrpc: "2.0", id: 3.14, method: "add", params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", id: 3.14, method: "add", params: { a: 1, b: 2 }
 
-      assert_rpc_error(expected_error: {
+      assert_rpc_error expected_error: {
         code: -32600,
         message: "Invalid Request",
         data: "Request ID must be a string or an integer or null",
-      })
+      }
     end
 
     # 4.1 Notification
@@ -146,21 +150,21 @@ describe JsonRpcHandler do
 
     describe "with a notification request" do
       it "returns nil even if the method returns a result" do
-        register("ping") do
+        register "ping" do
           "pong"
         end
 
-        handle({ jsonrpc: "2.0", method: "ping" })
+        handle jsonrpc: "2.0", method: "ping"
 
-          assert_nil @response
-        end
+        assert_nil @response
+      end
 
       it "returns nil even if the method raises an error" do
-        register("ping") do
+        register "ping" do
           raise StandardError, "Something bad happened"
         end
 
-        handle({ jsonrpc: "2.0", method: "ping" })
+        handle jsonrpc: "2.0", method: "ping"
 
         assert_nil @response
       end
@@ -177,23 +181,23 @@ describe JsonRpcHandler do
     #   method's expected parameters.
 
     it "with array params returns a result" do
-      register("sum") do |params|
+      register "sum" do |params|
         params.sum
       end
 
-      handle({ jsonrpc: "2.0", id: 1, method: "sum", params: [1, 2, 3] })
+      handle jsonrpc: "2.0", id: 1, method: "sum", params: [1, 2, 3]
 
-      assert_rpc_success(expected_result: 6)
+      assert_rpc_success expected_result: 6
     end
 
     it "with hash params returns a result" do
-      register("sum") do |params|
+      register "sum" do |params|
         params[:a] + params[:b]
       end
 
-      handle({ jsonrpc: "2.0", id: 1, method: "sum", params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", id: 1, method: "sum", params: { a: 1, b: 2 }
 
-      assert_rpc_success(expected_result: 3)
+      assert_rpc_success expected_result: 3
     end
 
     # 5 Response object
@@ -205,11 +209,11 @@ describe JsonRpcHandler do
     #   A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
 
     it "returns a result with jsonrpc set to 2.0" do
-      register("add") do |params|
+      register "add" do |params|
         params[:a] + params[:b]
       end
 
-      handle({ jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 }
 
       assert_equal "2.0", @response[:jsonrpc]
     end
@@ -233,11 +237,11 @@ describe JsonRpcHandler do
     # Either the result member or error member MUST be included, but both members MUST NOT be included.
 
     it "returns a result object and no error object on success" do
-      register("ping") do
+      register "ping" do
         "pong"
       end
 
-      handle({ jsonrpc: "2.0", id: 1, method: "ping" })
+      handle jsonrpc: "2.0", id: 1, method: "ping"
 
       assert_rpc_success expected_result: "pong"
       assert_equal 1, @response[:id]
@@ -245,11 +249,11 @@ describe JsonRpcHandler do
     end
 
     it "returns an error object and no result object on error" do
-      register("ping") do
+      register "ping" do
         raise StandardError, "Something bad happened"
       end
 
-      handle({ jsonrpc: "2.0", id: 1, method: "ping" })
+      handle jsonrpc: "2.0", id: 1, method: "ping"
 
       assert_rpc_error expected_error: {
         code: -32603,
@@ -261,11 +265,11 @@ describe JsonRpcHandler do
     end
 
     it "returns nil for id when there is an error detecting the id" do
-      register("ping") do
+      register "ping" do
         "pong"
       end
 
-      handle({ jsonrpc: "2.0", id: {}, method: "ping" })
+      handle jsonrpc: "2.0", id: {}, method: "ping"
 
       assert_rpc_error expected_error: {
         code: -32600,
@@ -301,7 +305,7 @@ describe JsonRpcHandler do
 
     it "returns an error with the code set to -32700 there is a JSON parse error" do
       # Defer to handle_json for JSON parsing
-      handle_json("Invalid JSON")
+      handle_json "Invalid JSON"
 
       assert_rpc_error expected_error: {
         code: -32700,
@@ -311,7 +315,7 @@ describe JsonRpcHandler do
     end
 
     it "returns an error when the request is not an array or a hash" do
-      handle(true)
+      handle true
 
       assert_rpc_error expected_error: {
         code: -32600,
@@ -322,35 +326,43 @@ describe JsonRpcHandler do
 
 
     it "returns an error with the code set to -32601 when the method does not exist" do
-      handle({ jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 }
 
-      assert_rpc_error(expected_error: { code: -32601, message: "Method not found", data: "add" })
+      assert_rpc_error expected_error: {
+        code: -32601,
+        message: "Method not found",
+        data: "add"
+      }
     end
 
     it "returns nil when the method does not exist and the id is nil" do
-      handle({ jsonrpc: "2.0", method: "add", params: { a: 1, b: 2 } })
+      handle jsonrpc: "2.0", method: "add", params: { a: 1, b: 2 }
 
       assert_nil @response
     end
 
     it "returns an error with the code set to -32602 when the method parameters are invalid" do
-      handle({ jsonrpc: "2.0", id: 1, method: "set_active", params: true })
+      handle jsonrpc: "2.0", id: 1, method: "set_active", params: true
 
-      assert_rpc_error(expected_error: {
+      assert_rpc_error expected_error: {
         code: -32602,
         message: "Invalid params",
         data: "Method parameters must be an array or an object or null",
-      })
+      }
     end
 
     it "returns an error with the code set to -32603 when there is an internal error" do
-      register("add") do
+      register "add" do
         raise StandardError, "Something bad happened"
       end
 
-      handle({ jsonrpc: "2.0", id: 1, method: "add" })
+      handle jsonrpc: "2.0", id: 1, method: "add"
 
-      assert_rpc_error(expected_error: { code: -32603, message: "Internal error", data: "Something bad happened" })
+      assert_rpc_error expected_error: {
+        code: -32603,
+        message: "Internal error",
+        data: "Something bad happened"
+      }
     end
 
     # 6 Batch
@@ -373,27 +385,27 @@ describe JsonRpcHandler do
 
     describe "with batch request" do
       it "returns an invalid request error when the request is an empty array" do
-        handle([])
+        handle []
 
-        assert_rpc_error(expected_error: {
+        assert_rpc_error expected_error: {
           code: -32600,
           message: "Invalid Request",
           data: "Request is an empty array",
-        })
+        }
       end
 
       it "returns an array of Response objects" do
-        register("add") do |params|
+        register "add" do |params|
           params[:a] + params[:b]
         end
-        register("mul") do |params|
+        register "mul" do |params|
           params[:a] * params[:b]
         end
 
-        handle([
+        handle [
           { jsonrpc: "2.0", id: 100, method: "add", params: { a: 1, b: 2 } },
           { jsonrpc: "2.0", id: 200, method: "mul", params: { a: 3, b: 4 } },
-        ])
+        ]
 
         assert @response.is_a?(Array)
         assert @response.all? { |result| result[:jsonrpc] == "2.0"}
@@ -403,16 +415,16 @@ describe JsonRpcHandler do
       end
 
       it "returns an array of Response objects excluding notifications" do
-        register("ping") {}
-        register("add") do |params|
+        register "ping" do; end
+        register "add" do |params|
           params[:a] + params[:b]
         end
 
-        handle([
+        handle [
           { jsonrpc: "2.0", method: "ping" },
           { jsonrpc: "2.0", id: 100, method: "add", params: { a: 1, b: 2 } },
           { jsonrpc: "2.0", id: 200, method: "add", params: { a: 2, b: 3 } },
-        ])
+        ]
 
         assert @response.is_a?(Array)
         assert @response.all? { |result| result[:jsonrpc] == "2.0"}
@@ -422,27 +434,27 @@ describe JsonRpcHandler do
       end
 
       it "returns a single response object when the batch has only a single response" do
-        register("ping") {}
-        register("add") do |params|
+        register "ping" do; end
+        register "add" do |params|
           params[:a] + params[:b]
         end
 
-        handle([
+        handle [
           { jsonrpc: "2.0", method: "ping" },
           { jsonrpc: "2.0", id: 100, method: "add", params: { a: 1, b: 2 } },
-        ])
+        ]
 
         assert_rpc_success expected_result: 3
       end
 
       it "returns nil when the batch has only notifications" do
-        register("ping") {}
-        register("pong") {}
+        register "ping" do; end
+        register "pong" do; end
 
-        handle([
+        handle [
           { jsonrpc: "2.0", method: "ping" },
           { jsonrpc: "2.0", method: "pong" },
-        ])
+        ]
 
         assert_nil @response
       end
@@ -458,7 +470,7 @@ describe JsonRpcHandler do
 
   describe '#handle_json' do
     it "returns a Response object when the request is valid and not a notification" do
-      register("add") do |params|
+      register "add" do |params|
         params[:a] + params[:b]
       end
 
@@ -468,7 +480,7 @@ describe JsonRpcHandler do
     end
 
     it "returns nil for notifications" do
-      register("ping") {}
+      register "ping" do; end
 
       handle_json({ jsonrpc: "2.0", method: "ping" }.to_json)
 
@@ -498,12 +510,12 @@ describe JsonRpcHandler do
   end
 
   def assert_rpc_success(expected_result:)
-    assert_equal(expected_result, @response[:result])
-    assert_nil(@response[:error])
+    assert_equal expected_result, @response[:result]
+    assert_nil @response[:error]
   end
 
   def assert_rpc_error(expected_error:)
-    assert_equal(expected_error, @response[:error])
-    assert_nil(@response[:result])
+    assert_equal expected_error, @response[:error]
+    assert_nil @response[:result]
   end
 end
