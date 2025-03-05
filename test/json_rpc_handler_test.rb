@@ -27,12 +27,6 @@ describe JsonRpcHandler do
     # jsonrpc
     #   A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
 
-    it "returns an error when the request is not an array or a hash" do
-      handle(true)
-
-      assert_rpc_error(expected_error: { code: -32600, message: "Invalid Request", data: "Request must be an array or a hash" })
-    end
-
     it "returns a result when jsonrpc is 2.0" do
       register("add") do |params|
         params[:a] + params[:b]
@@ -50,9 +44,9 @@ describe JsonRpcHandler do
     end
 
     # method
-    #   A String containing the name of the method to be invoked. Method names that begin with the word rpc followed by a
-    #   period character (U+002E or ASCII 46) are reserved for rpc-internal methods and extensions and MUST NOT be used
-    #   for anything else.
+    #   A String containing the name of the method to be invoked. Method names that begin with the word rpc followed by
+    #   a period character (U+002E or ASCII 46) are reserved for rpc-internal methods and extensions and MUST NOT be
+    #   used for anything else.
 
     it "returns an error when method is not a string" do
       handle({ jsonrpc: "2.0", id: 1, method: 42, params: { a: 1, b: 2 } })
@@ -75,8 +69,8 @@ describe JsonRpcHandler do
     end
 
     # params
-    #   A Structured value that holds the parameter values to be used during the invocation of the method. This member MAY
-    #   be omitted.
+    #   A Structured value that holds the parameter values to be used during the invocation of the method. This member
+    #   MAY be omitted.
 
     it "returns a result when parameters are omitted" do
       register("greet") do
@@ -143,8 +137,9 @@ describe JsonRpcHandler do
     # 4.1 Notification
     #
     # A Notification is a Request object without an "id" member. A Request object that is a Notification signifies the
-    # Client's lack of interest in the corresponding Response object, and as such no Response object needs to be returned
-    # to the client. The Server MUST NOT reply to a Notification, including those that are within a batch request.
+    # Client's lack of interest in the corresponding Response object, and as such no Response object needs to be
+    # returned to the client. The Server MUST NOT reply to a Notification, including those that are within a batch
+    # request.
     #
     # Notifications are not confirmable by definition, since they do not have a Response object to be returned. As such,
     # the Client would not be aware of any errors (like e.g. "Invalid params","Internal error").
@@ -155,17 +150,17 @@ describe JsonRpcHandler do
           "pong"
         end
 
-        handle({ jsonrpc: "2.0", method: "ping", params: { ts: Time.now.to_i } })
+        handle({ jsonrpc: "2.0", method: "ping" })
 
           assert_nil @response
         end
 
       it "returns nil even if the method raises an error" do
-          register("ping") do
+        register("ping") do
           raise StandardError, "Something bad happened"
         end
 
-        handle({ jsonrpc: "2.0", method: "ping", params: { ts: Time.now.to_i } })
+        handle({ jsonrpc: "2.0", method: "ping" })
 
         assert_nil @response
       end
@@ -173,8 +168,8 @@ describe JsonRpcHandler do
 
     # 4.2 Parameter Structures
     #
-    # If present, parameters for the rpc call MUST be provided as a Structured value. Either by-position through an Array
-    # or by-name through an Object.
+    # If present, parameters for the rpc call MUST be provided as a Structured value. Either by-position through an
+    # Array or by-name through an Object.
     #
     # * by-position: params MUST be an Array, containing the values in the Server expected order.
     # * by-name: params MUST be an Object, with member names that match the Server expected parameter names. The absence
@@ -191,6 +186,16 @@ describe JsonRpcHandler do
       assert_rpc_success(expected_result: 6)
     end
 
+    it "with hash params returns a result" do
+      register("sum") do |params|
+        params[:a] + params[:b]
+      end
+
+      handle({ jsonrpc: "2.0", id: 1, method: "sum", params: { a: 1, b: 2 } })
+
+      assert_rpc_success(expected_result: 3)
+    end
+
     # 5 Response object
     #
     # When a rpc call is made, the Server MUST reply with a Response, except for in the case of Notifications. The
@@ -203,9 +208,8 @@ describe JsonRpcHandler do
       register("add") do |params|
         params[:a] + params[:b]
       end
-      id = Time.now.to_i
 
-      handle({ jsonrpc: "2.0", id:, method: "add", params: { a: 1, b: 2 } })
+      handle({ jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 } })
 
       assert_equal "2.0", @response[:jsonrpc]
     end
@@ -228,10 +232,53 @@ describe JsonRpcHandler do
     #
     # Either the result member or error member MUST be included, but both members MUST NOT be included.
 
+    it "returns a result object and no error object on success" do
+      register("ping") do
+        "pong"
+      end
+
+      handle({ jsonrpc: "2.0", id: 1, method: "ping" })
+
+      assert_rpc_success expected_result: "pong"
+      assert_equal 1, @response[:id]
+      assert_nil @response[:error]
+    end
+
+    it "returns an error object and no result object on error" do
+      register("ping") do
+        raise StandardError, "Something bad happened"
+      end
+
+      handle({ jsonrpc: "2.0", id: 1, method: "ping" })
+
+      assert_rpc_error expected_error: {
+        code: -32603,
+        message: "Internal error",
+        data: "Something bad happened",
+      }
+      assert_equal 1, @response[:id]
+      assert_nil @response[:result]
+    end
+
+    it "returns nil for id when there is an error detecting the id" do
+      register("ping") do
+        "pong"
+      end
+
+      handle({ jsonrpc: "2.0", id: {}, method: "ping" })
+
+      assert_rpc_error expected_error: {
+        code: -32600,
+        message: "Invalid Request",
+        data: "Request ID must be a string or an integer or null",
+      }
+      assert_nil @response[:id]
+    end
+
     # 5.1 Error object
     #
-    # When a rpc call encounters an error, the Response Object MUST contain the error member with a value that is a Object
-    # with the following members:
+    # When a rpc call encounters an error, the Response Object MUST contain the error member with a value that is a
+    # Object with the following members:
     #
     # code
     #   A Number that indicates the error type that occurred.
@@ -251,6 +298,28 @@ describe JsonRpcHandler do
     # | -32601 | Method not found | The method does not exist / is not available. |
     # | -32602 | Invalid params   | Invalid method parameter(s).                  |
     # | -32603 | Internal error   | Internal JSON-RPC error.                      |
+
+    it "returns an error with the code set to -32700 there is a JSON parse error" do
+      # Defer to handle_json for JSON parsing
+      handle_json("Invalid JSON")
+
+      assert_rpc_error expected_error: {
+        code: -32700,
+        message: "Parse error",
+        data: "Invalid JSON"
+      }
+    end
+
+    it "returns an error when the request is not an array or a hash" do
+      handle(true)
+
+      assert_rpc_error expected_error: {
+        code: -32600,
+        message: "Invalid Request",
+        data: "Request must be an array or a hash",
+      }
+    end
+
 
     it "returns an error with the code set to -32601 when the method does not exist" do
       handle({ jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 } })
@@ -290,8 +359,8 @@ describe JsonRpcHandler do
     #
     # The Server should respond with an Array containing the corresponding Response objects, after all of the batch
     # Request objects have been processed. A Response object SHOULD exist for each Request object, except that there
-    # SHOULD NOT be any Response objects for notifications. The Server MAY process a batch rpc call as a set of concurrent
-    # tasks, processing them in any order and with any width of parallelism.
+    # SHOULD NOT be any Response objects for notifications. The Server MAY process a batch rpc call as a set of
+    # concurrent tasks, processing them in any order and with any width of parallelism.
     #
     # The Response objects being returned from a batch call MAY be returned in any order within the Array. The Client
     # SHOULD match contexts between the set of Request objects and the resulting set of Response objects based on the id
@@ -306,7 +375,11 @@ describe JsonRpcHandler do
       it "returns an invalid request error when the request is an empty array" do
         handle([])
 
-        assert_rpc_error(expected_error: { code: -32600, message: "Invalid Request", data: "Request is an empty array" })
+        assert_rpc_error(expected_error: {
+          code: -32600,
+          message: "Invalid Request",
+          data: "Request is an empty array",
+        })
       end
 
       it "returns an array of Response objects" do
@@ -338,16 +411,31 @@ describe JsonRpcHandler do
         handle([
           { jsonrpc: "2.0", method: "ping" },
           { jsonrpc: "2.0", id: 100, method: "add", params: { a: 1, b: 2 } },
+          { jsonrpc: "2.0", id: 200, method: "add", params: { a: 2, b: 3 } },
         ])
 
         assert @response.is_a?(Array)
         assert @response.all? { |result| result[:jsonrpc] == "2.0"}
-        assert_equal [100], @response.map { |result| result[:id] }
-        assert_equal [3], @response.map { |result| result[:result] }
+        assert_equal [100, 200], @response.map { |result| result[:id] }
+        assert_equal [3, 5], @response.map { |result| result[:result] }
         assert @response.all? { |result| result[:error].nil? }
       end
 
-      it "returns nil when there are only notifications" do
+      it "returns a single response object when the batch has only a single response" do
+        register("ping") {}
+        register("add") do |params|
+          params[:a] + params[:b]
+        end
+
+        handle([
+          { jsonrpc: "2.0", method: "ping" },
+          { jsonrpc: "2.0", id: 100, method: "add", params: { a: 1, b: 2 } },
+        ])
+
+        assert_rpc_success expected_result: 3
+      end
+
+      it "returns nil when the batch has only notifications" do
         register("ping") {}
         register("pong") {}
 
@@ -388,15 +476,9 @@ describe JsonRpcHandler do
     end
 
     it "returns an error with the id set to nil when the request is invalid" do
-      handle_json("Invalid JSON")
+      handle_json({ jsonrpc: "0.0", id: 1, method: "add", params: { a: 1, b: 2 } }.to_json)
 
       assert_nil @response[:id]
-    end
-
-    it "returns an error with the code set to -32700 there is a JSON parse error" do
-      handle_json("Invalid JSON")
-
-      assert_rpc_error(expected_error: { code: -32700, message: "Parse error", data: "Invalid JSON" })
     end
   end
 

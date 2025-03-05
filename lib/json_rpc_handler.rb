@@ -3,8 +3,6 @@
 require 'json_rpc_handler/version'
 
 module JsonRpcHandler
-  class InvalidRequestError < StandardError; end
-
   class Version
     V1_0 = '1.0'
     V2_0 = '2.0'
@@ -22,64 +20,61 @@ module JsonRpcHandler
 
   def handle(request, &find_method)
     if request.is_a? Array
-      return error_response(
-        id: nil,
-        error: {
-          code: ErrorCode::InvalidRequest,
-          message: 'Invalid Request',
-          data: 'Request is an empty array',
-        },
-      ) if request.empty?
+      return error_response id: :unknown_id, error: {
+        code: ErrorCode::InvalidRequest,
+        message: 'Invalid Request',
+        data: 'Request is an empty array',
+      } if request.empty?
+
       # Handle batch requests
-      responses = request.map { |req| process_request(req, &find_method) }.compact
-      # And empty array yields nil
+      responses = request.map { |req| process_request req, &find_method }.compact
+
+      # A single item is hoisted out of the array
+      return responses.first if responses.one?
+
+      # An empty array yields nil
       responses if responses.any?
     elsif request.is_a? Hash
       # Handle single request
-      process_request(request, &find_method)
+      process_request request, &find_method
     else
-      error_response(
-        id: nil,
-        error: {
-          code: ErrorCode::InvalidRequest,
-          message: 'Invalid Request',
-          data: 'Request must be an array or a hash',
-        },
-      )
+      error_response id: :unknown_id, error: {
+        code: ErrorCode::InvalidRequest,
+        message: 'Invalid Request',
+        data: 'Request must be an array or a hash',
+      }
     end
   end
 
   def handle_json(request_json, &find_method)
     begin
-      request = JSON.parse(request_json, symbolize_names: true)
-      response = handle(request, &find_method)
-      response.to_json if response
+      request = JSON.parse request_json, symbolize_names: true
+      response = handle request, &find_method
     rescue JSON::ParserError
-      return error_response(
-        id: nil,
-        error: {
-          code: ErrorCode::ParseError,
-          message: 'Parse error',
-          data: 'Invalid JSON',
-        },
-      ).to_json
+      response =error_response id: :unknown_id, error: {
+        code: ErrorCode::ParseError,
+        message: 'Parse error',
+        data: 'Invalid JSON',
+      }
     end
+
+    response.to_json if response
   end
 
   def process_request(request, &find_method)
     id = request[:id]
-    # If the id is not valid, set it to nil, so the validation error will have id as nil
-    id = nil if !valid_id? id
 
-    begin
-      validate_request request
-    rescue InvalidRequestError => e
-      return error_response id:, error: {
-        code: ErrorCode::InvalidRequest,
-        message: 'Invalid Request',
-        data: e.message,
-      }
+    error = case
+      when !valid_version?(request[:jsonrpc]) then 'JSON-RPC version must be 2.0'
+      when !valid_id?(request[:id]) then 'Request ID must be a string or an integer or null'
+      when !valid_method_name?(request[:method]) then 'Method name must be a string and not start with "rpc."'
     end
+
+    return error_response id: :unknown_id, error: {
+      code: ErrorCode::InvalidRequest,
+      message: 'Invalid Request',
+      data: error,
+    } if error
 
     method_name = request[:method]
     params = request[:params]
@@ -100,32 +95,19 @@ module JsonRpcHandler
           code: ErrorCode::MethodNotFound,
           message: 'Method not found',
           data: method_name,
-        } unless id.nil?
+        }
       end
 
       result = method.call params
 
       success_response(id:, result:) unless id.nil?
     rescue StandardError => e
-      error_response(id:, error: {
+      error_response id:, error: {
         code: ErrorCode::InternalError,
         message: 'Internal error',
         data: e.message,
-      }) unless id.nil?
+      }
     end
-  end
-
-  def validate_request(request)
-    error = case
-    when !valid_version?(request[:jsonrpc])
-      'JSON-RPC version must be 2.0'
-    when !valid_id?(request[:id])
-      'Request ID must be a string or an integer or null'
-    when !valid_method_name?(request[:method])
-      'Method name must be a string and not start with "rpc."'
-    end
-
-    raise InvalidRequestError, error if error
   end
 
   def valid_version?(version)
@@ -147,16 +129,16 @@ module JsonRpcHandler
   def success_response(id:, result:)
     {
       jsonrpc: Version::V2_0,
-      id:,
+      id: valid_id?(id) ? id : nil,
       result:,
-    }
+    } unless id.nil?
   end
 
   def error_response(id:, error:)
     {
       jsonrpc: Version::V2_0,
-      id:,
+      id: valid_id?(id) ? id : nil,
       error: error.compact,
-    }
+    } unless id.nil?
   end
 end
