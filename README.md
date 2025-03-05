@@ -75,9 +75,9 @@ puts result_json
 ```
 
 A `nil` from `handle` or `handle_json` means "no content" - either the
-method returned nil, or all method calls of a batch request returned nil. It is
-up to the integration to apply the appropriate transport-layer semantics (e.g.
-returning a 204 No Content).
+method returned `nil`, or all method calls of a batch request returned `nil`. It
+is up to the integration to apply the appropriate transport-layer semantics
+(e.g. returning a 204 No Content).
 
 ## Development
 
