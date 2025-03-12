@@ -13,16 +13,16 @@ Gem::Specification.new do |spec|
   spec.email         = ['ates.goral@shopify.com']
 
   spec.summary       = 'A spec-compliant JSON-RPC 2.0 handler'
-  spec.homepage      = 'https://github.com/Shopify/json_rpc_handler'
+  spec.homepage      = 'https://github.com/Shopify/json-rpc-handler'
   spec.license       = 'MIT'
 
   spec.required_ruby_version     = '>= 3.1.0'
   spec.required_rubygems_version = '>= 1.3.7'
 
   spec.metadata = {
-    'bug_tracker_uri' => 'https://github.com/Shopify/json_rpc_handler/issues',
-    'changelog_uri' => 'https://github.com/Shopify/json_rpc_handler/blob/main/CHANGELOG.md',
-    'source_code_uri' => 'https://github.com/Shopify/json_rpc_handler',
+    'bug_tracker_uri' => 'https://github.com/Shopify/json-rpc-handler/issues',
+    'changelog_uri' => 'https://github.com/Shopify/json-rpc-handler/blob/main/CHANGELOG.md',
+    'source_code_uri' => 'https://github.com/Shopify/json-rpc-handler',
     'allowed_push_host' => 'https://rubygems.org',
     'rubygems_mfa_required' => 'true'
   }
