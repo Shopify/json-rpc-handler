@@ -1,6 +1,6 @@
 # json_rpc_handler
 
-[![Gem (including prereleases)](https://img.shields.io/gem/v/json_rpc_handler?0.1.0)](https://rubygems.org/gems/json_rpc_handler)
+[![Gem (including prereleases)](https://img.shields.io/gem/v/json_rpc_handler?0.1.1)](https://rubygems.org/gems/json_rpc_handler)
 [![CI](https://github.com/Shopify/json-rpc-handler/actions/workflows/ci.yml/badge.svg)](https://github.com/Shopify/json-rpc-handler/actions/workflows/ci.yml)
 
 A lightweight, fully spec-compliant [JSON-RPC 2.0][1] handler.
