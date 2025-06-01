@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'json_rpc_handler/version'
+require 'json'
 
 module JsonRpcHandler
   class Version
