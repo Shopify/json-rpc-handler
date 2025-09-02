@@ -103,12 +103,26 @@ module JsonRpcHandler
 
       success_response id:, result:
     rescue StandardError => e
-      error_response id:, error: {
-        code: ErrorCode::InternalError,
-        message: 'Internal error',
-        data: e.message,
-      }
+      handle_error e, id
     end
+  end
+
+  def handle_error(error, id)
+    raw_code = error.respond_to?(:code) ? error.code : nil
+    
+    code, message = case raw_code
+      when ErrorCode::InvalidRequest then [ErrorCode::InvalidRequest, 'Invalid Request']
+      when ErrorCode::InvalidParams then [ErrorCode::InvalidParams, 'Invalid params']
+      when ErrorCode::ParseError then [ErrorCode::ParseError, 'Parse error']
+      when ErrorCode::InternalError then [ErrorCode::InternalError, 'Internal error']
+      else [ErrorCode::InternalError, 'Internal error']
+    end
+    
+    error_response id:, error: {
+      code:,
+      message:,
+      data: error.message,
+    }
   end
 
   def valid_version?(version)

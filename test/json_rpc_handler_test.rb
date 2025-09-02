@@ -2,6 +2,15 @@
 
 require 'test_helper'
 
+class RequestHandlerError < StandardError
+  attr_reader :code
+
+  def initialize(message, request = {}, code: nil, **_options)
+    super(message)
+    @code = code
+  end
+end
+
 describe JsonRpcHandler do
   before do
     @registry = {}
@@ -454,7 +463,93 @@ describe JsonRpcHandler do
     it "returns an error with the id set to nil when the request is invalid" do
       handle_json({ jsonrpc: "0.0", id: 1, method: "add", params: { a: 1, b: 2 } }.to_json)
 
-      assert_nil @response[:id]
+      assert_nil @response[:id]  
+    end
+
+    describe 'handle_error' do
+      it "returns an error object as a Invalid request error when an exception with `-32602` code is raised" do
+        register "logging/setLevel" do |params|
+          raise RequestHandlerError.new("Invalid log level", {}, code: -32602)
+        end
+      
+        handle_json({ jsonrpc: "2.0", id: 1, method: "logging/setLevel", params: { level: "info" } }.to_json)
+
+        assert_rpc_error expected_error: {
+          code: -32602,
+          message: 'Invalid params',
+          data: 'Invalid log level',
+        }
+      end
+
+      it "returns an error object as a Invalid request error when an exception with `-32600` code is raised" do
+        register "logging/setLevel" do |params|
+          raise RequestHandlerError.new("Invalid log level", {}, code: -32600)
+        end
+      
+        handle_json({ jsonrpc: "2.0", id: 1, method: "logging/setLevel", params: { level: "info" } }.to_json)
+
+        assert_rpc_error expected_error: {
+          code: -32600,
+          message: 'Invalid Request',
+          data: 'Invalid log level',
+        }
+      end
+
+      it "returns an error object as a Parse error when an exception with `-32700` code is raised" do
+        register "logging/setLevel" do |params|
+          raise RequestHandlerError.new("Invalid log level", {}, code: -32700)
+        end
+      
+        handle_json({ jsonrpc: "2.0", id: 1, method: "logging/setLevel", params: { level: "info" } }.to_json)
+
+        assert_rpc_error expected_error: {
+          code: -32700,
+          message: 'Parse error',
+          data: 'Invalid log level',
+        }
+      end
+
+      it "returns an error object as a Internal error when an exception with undefined code is raised" do
+        register "logging/setLevel" do |params|
+          raise RequestHandlerError.new("Invalid log level", {}, code: -99999)
+        end
+      
+        handle_json({ jsonrpc: "2.0", id: 1, method: "logging/setLevel", params: { level: "info" } }.to_json)
+
+        assert_rpc_error expected_error: {
+          code: -32603,
+          message: 'Internal error',
+          data: 'Invalid log level',
+        }
+      end
+
+      it "returns an error object as a Internal error when an exception with nil code is raised" do
+        register "logging/setLevel" do |params|
+          raise RequestHandlerError.new("Invalid log level", {}, code: nil)
+        end
+      
+        handle_json({ jsonrpc: "2.0", id: 1, method: "logging/setLevel", params: { level: "info" } }.to_json)
+
+        assert_rpc_error expected_error: {
+          code: -32603,
+          message: 'Internal error',
+          data: 'Invalid log level',
+        }
+      end
+
+      it "returns an error object as a internal error when an exception without code is raised" do
+        register "logging/setLevel" do |params|
+          raise RequestHandlerError.new("Invalid log level", {}, error_type: :invalid_log_level)
+        end
+        
+        handle_json({ jsonrpc: "2.0", id: 1, method: "logging/setLevel", params: { level: "info" } }.to_json)
+
+        assert_rpc_error expected_error: {
+          code: -32603,
+          message: 'Internal error',
+          data: 'Invalid log level',
+        }
+      end
     end
   end
 
