@@ -82,6 +82,54 @@ method returned `nil`, or all method calls of a batch request returned `nil`. It
 is up to the integration to apply the appropriate transport-layer semantics
 (e.g. returning a 204 No Content).
 
+### ID Validation
+
+By default, string request IDs are validated to contain only alphanumeric
+characters, dashes, and underscores.
+
+**Note:** The JSON-RPC 2.0 specification does not specify a default ID validation pattern, but this default validation
+is recommended to protect against XSS vulnerabilities when IDs are reflected in responses.
+
+```rb
+# Default behavior - accepts alphanumerics, dashes, underscores
+request = { jsonrpc: '2.0', id: 'request-123_abc', method: 'add', params: {a: 1, b: 2} }
+JsonRpcHandler.handle(request) { |method_name| ... }
+# => {"jsonrpc":"2.0","id":"request-123_abc","result":3}
+
+# Rejects potentially dangerous characters
+request = { jsonrpc: '2.0', id: '<script>alert("xss")</script>', method: 'add', params: {a: 1, b: 2} }
+JsonRpcHandler.handle(request) { |method_name| ... }
+# => {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid Request","data":"Request ID must match validation pattern, or be an integer or null"}}
+```
+
+You can customize the validation pattern by passing the `id_validation_pattern`
+parameter:
+
+```rb
+# Allow email-like IDs with a custom pattern
+custom_pattern = /\A[a-zA-Z0-9_.\-@]+\z/
+request = { jsonrpc: '2.0', id: 'user@example.com', method: 'add', params: {a: 1, b: 2} }
+
+JsonRpcHandler.handle(request, id_validation_pattern: custom_pattern) do |method_name|
+  # ...
+end
+
+# Also works with handle_json
+JsonRpcHandler.handle_json(request_json, id_validation_pattern: custom_pattern) do |method_name|
+  # ...
+end
+```
+
+To disable ID validation entirely (not recommended), pass
+`nil` as the pattern:
+
+```rb
+# Accepts any string
+JsonRpcHandler.handle(request, id_validation_pattern: nil) do |method_name|
+  # ...
+end
+```
+
 ## Development
 
 After checking out the repo:

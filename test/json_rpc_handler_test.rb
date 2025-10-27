@@ -90,9 +90,9 @@ describe JsonRpcHandler do
     #   The Server MUST reply with the same value in the Response object if included. This member is used to correlate the
     #   context between the two objects.
 
-    it "returns a response with the same request id when the id is a string" do
+    it "returns a response with the same request id when the id is a valid string" do
       register("add") { |params| params[:a] + params[:b] }
-      id = "rpc-call-42"
+      id = "request-123_abc"
 
       handle jsonrpc: "2.0", id:, method: "add", params: { a: 1, b: 2 }
 
@@ -116,7 +116,67 @@ describe JsonRpcHandler do
       assert_rpc_error expected_error: {
         code: -32600,
         message: "Invalid Request",
-        data: "Request ID must be a string or an integer or null",
+        data: "Request ID must match validation pattern, or be an integer or null",
+      }
+    end
+
+    it "accepts string id with alphanumerics, dashes, and underscores" do
+      register("add") { |params| params[:a] + params[:b] }
+      id = "request-123_ABC"
+
+      handle jsonrpc: "2.0", id:, method: "add", params: { a: 1, b: 2 }
+
+      assert_rpc_success expected_result: 3
+      assert_equal id, @response[:id]
+    end
+
+    it "accepts UUID format strings" do
+      register("add") { |params| params[:a] + params[:b] }
+      id = "550e8400-e29b-41d4-a716-446655440000"
+
+      handle jsonrpc: "2.0", id:, method: "add", params: { a: 1, b: 2 }
+
+      assert_rpc_success expected_result: 3
+      assert_equal id, @response[:id]
+    end
+
+    it "returns an error when request id contains HTML content (XSS prevention)" do
+      handle jsonrpc: "2.0", id: "<script>alert('xss')</script>", method: "add", params: { a: 1, b: 2 }
+
+      assert_rpc_error expected_error: {
+        code: -32600,
+        message: "Invalid Request",
+        data: "Request ID must match validation pattern, or be an integer or null",
+      }
+    end
+
+    it "returns an error when request id contains spaces" do
+      handle jsonrpc: "2.0", id: "request 123", method: "add", params: { a: 1, b: 2 }
+
+      assert_rpc_error expected_error: {
+        code: -32600,
+        message: "Invalid Request",
+        data: "Request ID must match validation pattern, or be an integer or null",
+      }
+    end
+
+    it "returns an error when request id contains special characters" do
+      handle jsonrpc: "2.0", id: "request@123", method: "add", params: { a: 1, b: 2 }
+
+      assert_rpc_error expected_error: {
+        code: -32600,
+        message: "Invalid Request",
+        data: "Request ID must match validation pattern, or be an integer or null",
+      }
+    end
+
+    it "returns an error when request id is an empty string" do
+      handle jsonrpc: "2.0", id: "", method: "add", params: { a: 1, b: 2 }
+
+      assert_rpc_error expected_error: {
+        code: -32600,
+        message: "Invalid Request",
+        data: "Request ID must match validation pattern, or be an integer or null",
       }
     end
 
@@ -126,7 +186,7 @@ describe JsonRpcHandler do
       assert_rpc_error expected_error: {
         code: -32600,
         message: "Invalid Request",
-        data: "Request ID must be a string or an integer or null",
+        data: "Request ID must match validation pattern, or be an integer or null",
       }
     end
 
@@ -250,7 +310,7 @@ describe JsonRpcHandler do
       assert_rpc_error expected_error: {
         code: -32600,
         message: "Invalid Request",
-        data: "Request ID must be a string or an integer or null",
+        data: "Request ID must match validation pattern, or be an integer or null",
       }
       assert_nil @response[:id]
     end
@@ -432,6 +492,125 @@ describe JsonRpcHandler do
     #
     # Method names that begin with rpc. are reserved for system extensions, and MUST NOT be used for anything else. Each
     # system extension is defined in a related specification. All system extensions are OPTIONAL.
+
+    describe "ID pattern configuration" do
+      it "uses the default pattern by default" do
+        register("add") { |params| params[:a] + params[:b] }
+
+        handle jsonrpc: "2.0", id: "valid-id_123", method: "add", params: { a: 1, b: 2 }
+
+        assert_rpc_success expected_result: 3
+      end
+
+      it "rejects IDs that don't match the default pattern" do
+        handle jsonrpc: "2.0", id: "invalid@id", method: "add", params: { a: 1, b: 2 }
+
+        assert_rpc_error expected_error: {
+          code: -32600,
+          message: "Invalid Request",
+          data: "Request ID must match validation pattern, or be an integer or null",
+        }
+      end
+
+      it "uses default pattern and rejects @ signs" do
+        register("add") { |params| params[:a] + params[:b] }
+
+        # Default pattern should reject @ signs
+        handle jsonrpc: "2.0", id: "user@example.com", method: "add", params: { a: 1, b: 2 }
+
+        assert_rpc_error expected_error: {
+          code: -32600,
+          message: "Invalid Request",
+          data: "Request ID must match validation pattern, or be an integer or null",
+        }
+      end
+
+      it "accepts custom pattern as parameter to handle" do
+        register("add") { |params| params[:a] + params[:b] }
+        custom_pattern = /\A[a-zA-Z0-9_.\-@]+\z/
+
+        @response = JsonRpcHandler.handle(
+          { jsonrpc: "2.0", id: "user@example.com", method: "add", params: { a: 1, b: 2 } },
+          id_validation_pattern: custom_pattern
+        ) { |method_name| @registry[method_name] }
+
+        assert_rpc_success expected_result: 3
+        assert_equal "user@example.com", @response[:id]
+      end
+
+      it "validates against custom pattern parameter" do
+        custom_pattern = /\A[a-zA-Z0-9_.\-@]+\z/
+
+        @response = JsonRpcHandler.handle(
+          { jsonrpc: "2.0", id: "id<script>", method: "add", params: { a: 1, b: 2 } },
+          id_validation_pattern: custom_pattern
+        ) { |method_name| @registry[method_name] }
+
+        assert_rpc_error expected_error: {
+          code: -32600,
+          message: "Invalid Request",
+          data: "Request ID must match validation pattern, or be an integer or null",
+        }
+      end
+
+      it "accepts custom pattern as parameter to handle_json" do
+        register("add") { |params| params[:a] + params[:b] }
+        custom_pattern = /\A[a-zA-Z0-9_.\-@]+\z/
+
+        @response_json = JsonRpcHandler.handle_json(
+          { jsonrpc: "2.0", id: "user@example.com", method: "add", params: { a: 1, b: 2 } }.to_json,
+          id_validation_pattern: custom_pattern
+        ) { |method_name| @registry[method_name] }
+        @response = JSON.parse(@response_json, symbolize_names: true)
+
+        assert_rpc_success expected_result: 3
+        assert_equal "user@example.com", @response[:id]
+      end
+
+      it "applies custom pattern to batch requests" do
+        register("add") { |params| params[:a] + params[:b] }
+        register("mul") { |params| params[:a] * params[:b] }
+        custom_pattern = /\A[a-zA-Z0-9_.\-@]+\z/
+
+        @response = JsonRpcHandler.handle(
+          [
+            { jsonrpc: "2.0", id: "req@1", method: "add", params: { a: 1, b: 2 } },
+            { jsonrpc: "2.0", id: "req@2", method: "mul", params: { a: 3, b: 4 } },
+          ],
+          id_validation_pattern: custom_pattern
+        ) { |method_name| @registry[method_name] }
+
+        assert @response.is_a?(Array)
+        assert_equal ["req@1", "req@2"], @response.map { |r| r[:id] }
+        assert_equal [3, 12], @response.map { |r| r[:result] }
+      end
+
+      it "parameter pattern overrides default pattern" do
+        register("add") { |params| params[:a] + params[:b] }
+        # Use permissive parameter pattern (default is restrictive)
+        custom_pattern = /\A[a-zA-Z0-9_.\-@]+\z/
+
+        @response = JsonRpcHandler.handle(
+          { jsonrpc: "2.0", id: "user@example.com", method: "add", params: { a: 1, b: 2 } },
+          id_validation_pattern: custom_pattern
+        ) { |method_name| @registry[method_name] }
+
+        assert_rpc_success expected_result: 3
+        assert_equal "user@example.com", @response[:id]
+      end
+
+      it "accepts any string when pattern is nil" do
+        register("add") { |params| params[:a] + params[:b] }
+
+        @response = JsonRpcHandler.handle(
+          { jsonrpc: "2.0", id: "<script>alert('xss')</script>", method: "add", params: { a: 1, b: 2 } },
+          id_validation_pattern: nil
+        ) { |method_name| @registry[method_name] }
+
+        assert_rpc_success expected_result: 3
+        assert_equal "<script>alert('xss')</script>", @response[:id]
+      end
+    end
   end
 
   describe '#handle_json' do
