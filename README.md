@@ -82,6 +82,58 @@ method returned `nil`, or all method calls of a batch request returned `nil`. It
 is up to the integration to apply the appropriate transport-layer semantics
 (e.g. returning a 204 No Content).
 
+### Error handling
+
+Unexpected exceptions from method lookup or a registered method return code
+`-32603` and message `Internal error`, with no `data` member.
+
+Pass `on_error:` to `handle` or `handle_json` to report these exceptions. The hook
+receives the exception and a context hash with `id` and `method` keys. It runs
+before the internal error response is built, once for each failing batch item,
+including notifications. The notification's `id` is `nil`.
+
+```ruby
+methods = { 'add' => ->(params) { params[:a] + params[:b] } }
+on_error = ->(exception, context) {
+  warn "#{context[:method]} #{context[:id].inspect}: #{exception.message}"
+}
+
+JsonRpcHandler.handle(request, on_error:) { |name| methods[name] }
+JsonRpcHandler.handle_json(request_json, on_error:) { |name| methods[name] }
+```
+
+The hook's return value is ignored. If it raises a `StandardError`, that error is
+ignored without calling the hook again. The original request still gets the
+internal error response, or no response for a notification.
+
+For an explicit error response, raise `JsonRpcHandler::Error`, a `StandardError`
+subclass. Its constructor takes required `code:` and `message:` keywords and an
+optional `data:` keyword:
+
+```ruby
+response = JsonRpcHandler.handle(request) do |name|
+  if name == 'add'
+    ->(_params) {
+      raise JsonRpcHandler::Error.new(
+        code: -32001,
+        message: 'Try later',
+        data: { retry: true },
+      )
+    }
+  end
+end
+
+puts response.to_json
+# {"jsonrpc":"2.0","id":1,"error":{"code":-32001,"message":"Try later","data":{"retry":true}}}
+```
+
+The supplied code, message, and data become the response's error fields. A `nil`
+`data` value is omitted; values such as `false` and `0` are kept. There is no
+fallback from `data` to the exception message. These explicit errors do not call
+`on_error:` and still produce no response for notifications. Other response
+errors, such as Method not found and Parse error, keep their existing fields and
+do not call the hook.
+
 ### ID Validation
 
 By default, string request IDs are validated to contain only alphanumeric
