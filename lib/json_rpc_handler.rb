@@ -17,11 +17,21 @@ module JsonRpcHandler
     ParseError = -32700
   end
 
+  class Error < StandardError
+    attr_reader :code, :data
+
+    def initialize(code:, message:, data: nil)
+      super(message)
+      @code = code
+      @data = data
+    end
+  end
+
   DEFAULT_ALLOWED_ID_CHARACTERS = /\A[a-zA-Z0-9_-]+\z/.freeze
 
   module_function
 
-  def handle(request, id_validation_pattern: DEFAULT_ALLOWED_ID_CHARACTERS, &method_finder)
+  def handle(request, id_validation_pattern: DEFAULT_ALLOWED_ID_CHARACTERS, on_error: nil, &method_finder)
 
     if request.is_a? Array
       return error_response id: :unknown_id, id_validation_pattern:, error: {
@@ -31,7 +41,7 @@ module JsonRpcHandler
       } if request.empty?
 
       # Handle batch requests
-      responses = request.map { |req| process_request req, id_validation_pattern:, &method_finder }.compact
+      responses = request.map { |req| process_request req, id_validation_pattern:, on_error:, &method_finder }.compact
 
       # A single item is hoisted out of the array
       return responses.first if responses.one?
@@ -40,7 +50,7 @@ module JsonRpcHandler
       responses if responses.any?
     elsif request.is_a? Hash
       # Handle single request
-      process_request request, id_validation_pattern:, &method_finder
+      process_request request, id_validation_pattern:, on_error:, &method_finder
     else
       error_response id: :unknown_id, id_validation_pattern:, error: {
         code: ErrorCode::InvalidRequest,
@@ -50,10 +60,10 @@ module JsonRpcHandler
     end
   end
 
-  def handle_json(request_json, id_validation_pattern: DEFAULT_ALLOWED_ID_CHARACTERS, &method_finder)
+  def handle_json(request_json, id_validation_pattern: DEFAULT_ALLOWED_ID_CHARACTERS, on_error: nil, &method_finder)
     begin
       request = JSON.parse request_json, symbolize_names: true
-      response = handle request, id_validation_pattern:, &method_finder
+      response = handle request, id_validation_pattern:, on_error:, &method_finder
     rescue JSON::ParserError
       response = error_response id: :unknown_id, id_validation_pattern:, error: {
         code: ErrorCode::ParseError,
@@ -65,7 +75,7 @@ module JsonRpcHandler
     response.to_json if response
   end
 
-  def process_request(request, id_validation_pattern:, &method_finder)
+  def process_request(request, id_validation_pattern:, on_error: nil, &method_finder)
     id = request[:id]
 
     error = case
@@ -105,11 +115,22 @@ module JsonRpcHandler
       result = method.call params
 
       success_response id:, result:
+    rescue Error => e
+      error_response id:, id_validation_pattern:, error: {
+        code: e.code,
+        message: e.message,
+        data: e.data,
+      }
     rescue StandardError => e
+      begin
+        on_error&.call(e, { id:, method: method_name })
+      rescue StandardError
+        # Reporter errors must not change the response.
+      end
+
       error_response id:, id_validation_pattern:, error: {
         code: ErrorCode::InternalError,
         message: 'Internal error',
-        data: e.message,
       }
     end
   end

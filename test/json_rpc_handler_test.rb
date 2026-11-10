@@ -296,7 +296,6 @@ describe JsonRpcHandler do
       assert_rpc_error expected_error: {
         code: -32603,
         message: "Internal error",
-        data: "Something bad happened",
       }
       assert_equal 1, @response[:id]
       assert_nil @response[:result]
@@ -395,8 +394,19 @@ describe JsonRpcHandler do
       assert_rpc_error expected_error: {
         code: -32603,
         message: "Internal error",
-        data: "Something bad happened"
       }
+    end
+
+    it "returns an internal error without data when method lookup raises" do
+      @response = JsonRpcHandler.handle({ jsonrpc: "2.0", id: 1, method: "add" }) do
+        raise StandardError, "Lookup failed at /srv/app/methods.rb"
+      end
+
+      assert_rpc_error expected_error: {
+        code: -32603,
+        message: "Internal error",
+      }
+      assert_equal 1, @response[:id]
     end
 
     # 6 Batch
@@ -620,6 +630,55 @@ describe JsonRpcHandler do
       handle_json({ jsonrpc: "2.0", id: 1, method: "add", params: { a: 1, b: 2 } }.to_json)
 
       assert_rpc_success(expected_result: 3)
+    end
+
+    it "returns an internal error without data when a method raises" do
+      register("add") { raise StandardError, "Connection failed to db.internal" }
+
+      handle_json({ jsonrpc: "2.0", id: 1, method: "add" }.to_json)
+
+      assert_rpc_error expected_error: {
+        code: -32603,
+        message: "Internal error",
+      }
+      assert_equal 1, @response[:id]
+    end
+
+    it "returns an internal error without data when method lookup raises" do
+      @response_json = JsonRpcHandler.handle_json({ jsonrpc: "2.0", id: 1, method: "add" }.to_json) do
+        raise StandardError, "Lookup failed at /srv/app/methods.rb"
+      end
+      @response = JSON.parse(@response_json, symbolize_names: true)
+
+      assert_rpc_error expected_error: {
+        code: -32603,
+        message: "Internal error",
+      }
+      assert_equal 1, @response[:id]
+    end
+
+    it "omits internal error data in a batch and continues with other requests" do
+      register("add") { raise StandardError, "Connection failed to db.internal" }
+      register("ping") { "pong" }
+      request = [
+        { jsonrpc: "2.0", id: 1, method: "lookup" },
+        { jsonrpc: "2.0", id: 2, method: "add" },
+        { jsonrpc: "2.0", id: 3, method: "ping" },
+        { jsonrpc: "2.0", method: "add" },
+      ]
+
+      @response_json = JsonRpcHandler.handle_json(request.to_json) do |method_name|
+        raise StandardError, "Lookup failed at /srv/app/methods.rb" if method_name == "lookup"
+
+        @registry[method_name]
+      end
+      @response = JSON.parse(@response_json, symbolize_names: true)
+
+      assert_equal [
+        { jsonrpc: "2.0", id: 1, error: { code: -32603, message: "Internal error" } },
+        { jsonrpc: "2.0", id: 2, error: { code: -32603, message: "Internal error" } },
+        { jsonrpc: "2.0", id: 3, result: "pong" },
+      ], @response
     end
 
     it "returns nil for notifications" do
