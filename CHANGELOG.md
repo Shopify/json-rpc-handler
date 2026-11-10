@@ -1,5 +1,9 @@
 # Unreleased
 
+# 0.2.1
+
+- Add a deprecation notice. This is the final release.
+
 # 0.2.0
 
 - Omit exception messages from internal error responses.

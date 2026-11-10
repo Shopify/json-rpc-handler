@@ -1,3 +1,7 @@
+> **This repository is no longer maintained.** It has been archived and receives no updates or security fixes.
+
+For MCP users, the official `mcp` gem ([modelcontextprotocol/ruby-sdk](https://github.com/modelcontextprotocol/ruby-sdk)) has its own JSON-RPC handling (`lib/json_rpc_handler.rb`).
+
 # json_rpc_handler
 
 [![Gem (including prereleases)](https://img.shields.io/gem/v/json_rpc_handler?0.1.1)](https://rubygems.org/gems/json_rpc_handler)
