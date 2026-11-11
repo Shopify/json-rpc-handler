@@ -16,6 +16,11 @@ Gem::Specification.new do |spec|
   spec.homepage      = 'https://github.com/Shopify/json-rpc-handler'
   spec.license       = 'MIT'
 
+  spec.post_install_message = <<~MESSAGE
+    This repository is no longer maintained. It has been archived and receives no updates or security fixes.
+    For MCP users, the official mcp gem (https://github.com/modelcontextprotocol/ruby-sdk) has its own JSON-RPC handling (lib/json_rpc_handler.rb).
+  MESSAGE
+
   spec.required_ruby_version     = '>= 3.1.0'
   spec.required_rubygems_version = '>= 1.3.7'
 
